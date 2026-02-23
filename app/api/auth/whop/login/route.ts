@@ -1,10 +1,11 @@
 /**
  * GET /api/auth/whop/login
  *
- * Starts the Whop OAuth flow with PKCE (required by Whop for all client types).
+ * Initiates the Whop OAuth flow with PKCE.
+ * Encodes the code_verifier inside the state parameter so it survives
+ * the round-trip through Whop without relying on a separate cookie.
  *
- * - `state` cookie  → CSRF protection (verified in callback)
- * - `oauth_verifier` cookie → PKCE code_verifier (used in token exchange)
+ * state format:  <32-byte-hex>.<base64url(codeVerifier)>
  */
 
 import { NextResponse } from "next/server";
@@ -23,28 +24,39 @@ export async function GET(): Promise<NextResponse> {
     );
   }
 
+  // PKCE
   const codeVerifier  = base64url(randomBytes(48));
   const codeChallenge = base64url(createHash("sha256").update(codeVerifier).digest());
-  const state         = randomBytes(16).toString("hex");
-  const nonce         = randomBytes(16).toString("hex");
 
-  console.log("[Auth] Login  → verifier first8:", codeVerifier.slice(0, 8), "len:", codeVerifier.length);
-  console.log("[Auth] Login  → challenge first8:", codeChallenge.slice(0, 8), "len:", codeChallenge.length);
+  // Whop only returns the state value unchanged if it's a short opaque string.
+  // Embedding the codeVerifier inside state is unreliable (Whop may truncate it).
+  // Instead, store codeVerifier in a cookie alongside the nonce.
+  const nonce = randomBytes(16).toString("hex");
+  const state = nonce; // state = nonce only (short, opaque)
 
-  const authUrl  = buildWhopOAuthUrl(state, codeChallenge, nonce);
-  console.log("[Auth] Redirect URL:", authUrl);
+  // nonce is passed both as state AND as a separate ?nonce= param required
+  // by Whop's OIDC implementation.
+  const authUrl = buildWhopOAuthUrl(state, codeChallenge, nonce);
+
   const response = NextResponse.redirect(authUrl);
 
-  const cookieOpts = {
+  // Store nonce for CSRF verification
+  response.cookies.set("oauth_nonce", nonce, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax" as const,
-    maxAge: 60 * 10, // 10 minutes — plenty of time to complete the OAuth flow
+    sameSite: "lax",
+    maxAge: 60 * 10,
     path: "/",
-  };
+  });
 
-  response.cookies.set("oauth_state",    state,        cookieOpts);
-  response.cookies.set("oauth_verifier", codeVerifier, cookieOpts);
+  // Store codeVerifier separately (can't rely on Whop preserving full state)
+  response.cookies.set("oauth_code_verifier", codeVerifier, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 60 * 10,
+    path: "/",
+  });
 
   return response;
 }
