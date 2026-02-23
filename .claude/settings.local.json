@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd /d/Work/drip-scheduler && npm install @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities 2>&1)",
+      "Bash(cd /d/Work/drip-scheduler && npx tsc --noEmit 2>&1)",
+      "WebFetch(domain:whop.com)",
+      "WebFetch(domain:api.whop.com)",
+      "WebFetch(domain:dev.whop.com)",
+      "Bash(curl:*)",
+      "WebSearch",
+      "WebFetch(domain:docs.whop.com)",
+      "WebFetch(domain:deepwiki.com)",
+      "Bash(cd \"D:\\\\Work\\\\drip-scheduler\" && npm run build 2>&1)",
+      "Bash(cd \"D:\\\\Work\\\\drip-scheduler\" && npx tsx scripts/migrate-progress.ts 2>&1)",
+      "Bash(cd \"D:\\\\Work\\\\drip-scheduler\" && npx tsx -e \"\nimport { config } from 'dotenv';\nconfig\\({ path: '.env.local' }\\);\nimport { neon } from '@neondatabase/serverless';\nconst sql = neon\\(process.env.DATABASE_URL\\);\nconst rows = await sql\\\\`SELECT id, whop_company_id, plan, created_at FROM companies ORDER BY created_at DESC LIMIT 5\\\\`;\nconsole.log\\(JSON.stringify\\(rows, null, 2\\)\\);\n\" 2>&1)",
+      "Bash(cd \"D:\\\\Work\\\\drip-scheduler\" && node --input-type=module << 'EOF'\nimport { config } from 'dotenv';\nconfig\\({ path: '.env.local' }\\);\nimport { neon } from '@neondatabase/serverless';\nconst sql = neon\\(process.env.DATABASE_URL\\);\nconst rows = await sql`SELECT id, whop_company_id, plan FROM companies ORDER BY created_at DESC LIMIT 5`;\nconsole.log\\(rows\\);\nEOF\n2>&1)",
+      "Bash(sort:*)",
+      "Bash(tail:*)",
+      "Bash(echo checking...:*)",
+      "Bash(cd /d/Work/drip-scheduler && npm run build 2>&1)"
+    ]
+  }
+}
