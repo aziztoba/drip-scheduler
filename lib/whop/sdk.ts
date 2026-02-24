@@ -1,73 +1,30 @@
-type WhopAccessLevel = "customer" | "admin" | "no_access";
+/**
+ * lib/whop/sdk.ts
+ *
+ * Thin re-export layer over @whop-apps/sdk.
+ * Call sites that used the old @whop/sdk dynamic-import shim now resolve
+ * directly to the installed SDK.
+ */
 
-export interface WhopAccessResponse {
+import { validateToken, hasAccess } from "@whop-apps/sdk";
+
+export type WhopAccessResponse = {
   has_access: boolean;
-  access_level: WhopAccessLevel;
-}
+  access_level: "customer" | "admin" | "no_access";
+};
 
 export interface VerifiedWhopUser {
   userId: string;
 }
 
-type WhopSdkLike = {
-  verifyUserToken: (
-    headers: Headers,
-    opts?: { dontThrow?: boolean }
-  ) => Promise<{ userId?: string }>;
-  users: {
-    checkAccess: (resourceId: string, user: { id: string }) => Promise<WhopAccessResponse>;
-  };
-  webhooks?: {
-    unwrap: (body: string, ctx: { headers: Record<string, string> }) => unknown;
-  };
-};
-
-let cachedSdk: WhopSdkLike | null | undefined;
-
-async function getWhopSdk(): Promise<WhopSdkLike | null> {
-  if (cachedSdk !== undefined) return cachedSdk;
-
-  try {
-    const mod = (await import("@whop/sdk")) as {
-      Whop?: new (opts: Record<string, string>) => WhopSdkLike;
-      default?: new (opts: Record<string, string>) => WhopSdkLike;
-    };
-
-    const WhopCtor = mod.Whop ?? mod.default;
-    if (!WhopCtor) {
-      cachedSdk = null;
-      return cachedSdk;
-    }
-
-    const appID = process.env.NEXT_PUBLIC_WHOP_APP_ID;
-    const apiKey = process.env.WHOP_API_KEY;
-    if (!appID || !apiKey) {
-      cachedSdk = null;
-      return cachedSdk;
-    }
-
-    cachedSdk = new WhopCtor({
-      appID,
-      apiKey,
-      ...(process.env.WHOP_WEBHOOK_SECRET
-        ? { webhookKey: Buffer.from(process.env.WHOP_WEBHOOK_SECRET).toString("base64") }
-        : {}),
-    });
-    return cachedSdk;
-  } catch {
-    cachedSdk = null;
-    return cachedSdk;
-  }
-}
-
+/** Verifies an x-whop-user-token header value via the Whop SDK. */
 export async function verifyWhopUserTokenViaSdk(
   hdrs: Headers
 ): Promise<VerifiedWhopUser | null> {
-  const sdk = await getWhopSdk();
-  if (!sdk) return null;
-
+  const token = hdrs.get("x-whop-user-token");
+  if (!token) return null;
   try {
-    const result = await sdk.verifyUserToken(hdrs, { dontThrow: true });
+    const result = await validateToken({ token, dontThrow: true });
     if (!result?.userId) return null;
     return { userId: result.userId };
   } catch {
@@ -75,29 +32,17 @@ export async function verifyWhopUserTokenViaSdk(
   }
 }
 
+/** Checks if a user (identified by their token) has access to a Whop resource. */
 export async function checkWhopAccessViaSdk(
   resourceId: string,
-  userId: string
+  token: string
 ): Promise<WhopAccessResponse | null> {
-  const sdk = await getWhopSdk();
-  if (!sdk) return null;
-
   try {
-    return await sdk.users.checkAccess(resourceId, { id: userId });
-  } catch {
-    return null;
-  }
-}
-
-export async function unwrapWhopWebhookViaSdk(
-  body: string,
-  headers: Headers
-): Promise<unknown | null> {
-  const sdk = await getWhopSdk();
-  if (!sdk?.webhooks?.unwrap) return null;
-
-  try {
-    return sdk.webhooks.unwrap(body, { headers: Object.fromEntries(headers.entries()) });
+    const ok = await hasAccess({ to: resourceId, token });
+    return {
+      has_access: ok,
+      access_level: ok ? "customer" : "no_access",
+    };
   } catch {
     return null;
   }

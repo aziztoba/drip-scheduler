@@ -2,91 +2,49 @@
  * POST /api/webhooks/whop
  *
  * Receives and processes Whop membership lifecycle events.
- * Prefers Whop SDK webhook unwrapping (Standard Webhooks compatible) when configured,
- * and falls back to the legacy x-whop-signature HMAC verification used by this app.
+ * Uses makeWebhookHandler from @whop-apps/sdk for Standard Webhooks signature
+ * verification and typed payload parsing.
+ *
+ * Handled events:
+ *  - membership.went_valid   → upsert membership as active
+ *  - membership.went_invalid → mark membership as expired
  */
 
 export const dynamic = "force-dynamic";
 
-import { NextRequest, NextResponse } from "next/server";
-import { db, memberships, companies } from "@/db";
+import { NextRequest } from "next/server";
+import { makeWebhookHandler } from "@whop-apps/sdk";
+import { db, memberships } from "@/db";
 import { eq } from "drizzle-orm";
-import {
-  parseWebhookEvent,
-  type MembershipEventData,
-  verifyWhopWebhookSignature,
-} from "@/lib/whop/webhooks";
-import { unwrapWhopWebhookViaSdk } from "@/lib/whop/sdk";
+import { resolveCompanyFromWhopResourceId } from "@/lib/whop/resource-map";
+import type { MembershipEventData } from "@/lib/whop/webhooks";
 
-export async function POST(req: NextRequest): Promise<NextResponse> {
-  const rawBody = await req.text();
-  const webhookSecret = process.env.WHOP_WEBHOOK_SECRET;
-  const legacySignature = req.headers.get("x-whop-signature");
+const handle = makeWebhookHandler({
+  signatureKey: process.env.WHOP_WEBHOOK_SECRET,
+});
 
-  if (!webhookSecret) {
-    console.error("[Webhook] WHOP_WEBHOOK_SECRET not configured");
-    return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
-  }
-
-  let parsed: unknown = await unwrapWhopWebhookViaSdk(rawBody, req.headers);
-  if (!parsed) {
-    if (!verifyWhopWebhookSignature(rawBody, legacySignature, webhookSecret)) {
-      console.warn("[Webhook] Rejected - invalid signature", { legacySignature });
-      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
-    }
-    parsed = parseWebhookEvent(rawBody);
-  }
-
-  const event = normalizeWebhookEvent(parsed);
-  if (!event) {
-    return NextResponse.json({ error: "Malformed payload" }, { status: 400 });
-  }
-
-  console.log(`[Webhook] ${event.action}`, JSON.stringify(event.data));
-
-  try {
-    switch (event.action) {
-      case "membership.went_valid":
-        await handleMembershipActivated(event.data as MembershipEventData);
-        break;
-      case "membership.went_invalid":
-        await handleMembershipDeactivated(event.data as MembershipEventData);
-        break;
-      default:
-        console.log(`[Webhook] Unhandled action: ${event.action}`);
-    }
-
-    return NextResponse.json({ received: true });
-  } catch (error) {
-    console.error(`[Webhook] Error processing "${event.action}":`, error);
-    return NextResponse.json({ error: "Processing failed" }, { status: 500 });
-  }
-}
-
-function normalizeWebhookEvent(input: unknown): { action: string; data: unknown } | null {
-  if (!input || typeof input !== "object") return null;
-  const obj = input as Record<string, unknown>;
-
-  if (typeof obj.action === "string" && "data" in obj) {
-    return { action: obj.action, data: obj.data };
-  }
-
-  if (typeof obj.type === "string" && "data" in obj) {
-    return { action: obj.type, data: obj.data };
-  }
-
-  return null;
+export function POST(req: NextRequest): Promise<Response> {
+  return handle(req, {
+    membershipWentValid: async (data) => {
+      await handleMembershipActivated(data as unknown as MembershipEventData);
+    },
+    membershipWentInvalid: async (data) => {
+      await handleMembershipDeactivated(data as unknown as MembershipEventData);
+    },
+  });
 }
 
 async function handleMembershipActivated(data: MembershipEventData): Promise<void> {
-  const [company] = await db
-    .select({ id: companies.id })
-    .from(companies)
-    .where(eq(companies.whopCompanyId, data.company_id))
-    .limit(1);
+  const userId = data.user_id;
+  if (!userId) {
+    console.warn("[Webhook] membership.went_valid missing user_id", data.id);
+    return;
+  }
 
-  if (!company) {
-    console.warn(`[Webhook] No company found for whop_company_id: ${data.company_id}`);
+  // Resolve page_id (Whop experience/page) → internal company
+  const resolved = await resolveCompanyFromWhopResourceId(data.page_id);
+  if (!resolved) {
+    console.warn(`[Webhook] No company found for page_id: ${data.page_id}`);
     return;
   }
 
@@ -96,22 +54,21 @@ async function handleMembershipActivated(data: MembershipEventData): Promise<voi
     .insert(memberships)
     .values({
       whopMembershipId: data.id,
-      companyId: company.id,
-      whopUserId: data.user_id,
+      companyId: resolved.internalCompanyId,
+      whopUserId: userId,
       joinedAt,
       status: "active",
-      username: data.user?.username ?? null,
+      username: null,
     })
     .onConflictDoUpdate({
       target: memberships.whopMembershipId,
       set: {
         status: "active",
         joinedAt,
-        username: data.user?.username ?? null,
       },
     });
 
-  console.log(`[Webhook] Membership activated: ${data.id} (user: ${data.user_id})`);
+  console.log(`[Webhook] Membership activated: ${data.id} (user: ${userId})`);
 }
 
 async function handleMembershipDeactivated(data: MembershipEventData): Promise<void> {
@@ -120,6 +77,5 @@ async function handleMembershipDeactivated(data: MembershipEventData): Promise<v
     .set({ status: "expired" })
     .where(eq(memberships.whopMembershipId, data.id));
 
-  console.log(`[Webhook] Membership expired: ${data.id}`);
+  console.log(`[Webhook] Membership deactivated: ${data.id}`);
 }
-

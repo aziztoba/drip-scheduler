@@ -4,14 +4,13 @@
  * Returns courses + lock/unlock status for the authenticated member.
  * Called by the member iframe view.
  *
- * Security model:
- *  - Whop iframe SDK sends a user token in x-whop-user-token header
- *  - We verify this token with Whop's API
- *  - We NEVER send locked module content — server enforces access
+ * Auth:
+ *  - validateToken(token) verifies the x-whop-user-token header via Whop SDK.
+ *  - hasAccess({ to: companyId }) confirms the user holds a membership for this resource.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { verifyWhopUserAndAccess } from "@/lib/whop/client";
+import { validateToken, hasAccess } from "@whop-apps/sdk";
 import { calculateDripStatus } from "@/lib/drip";
 import { db, memberships, courses, modules } from "@/db";
 import { eq, and, asc } from "drizzle-orm";
@@ -28,10 +27,17 @@ export async function GET(
     return NextResponse.json({ error: "No user token provided" }, { status: 401 });
   }
 
-  const whopUser = await verifyWhopUserAndAccess(token, companyId);
-  if (!whopUser) {
+  const verified = await validateToken({ token, dontThrow: true });
+  if (!verified?.userId) {
     return NextResponse.json({ error: "Invalid user token" }, { status: 401 });
   }
+
+  const allowed = await hasAccess({ to: companyId, headers: req.headers });
+  if (!allowed) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
+
+  const userId = verified.userId;
 
   // ── Look up their membership ───────────────────────────────────────────────
   const [membership] = await db
@@ -39,7 +45,7 @@ export async function GET(
     .from(memberships)
     .where(
       and(
-        eq(memberships.whopUserId, whopUser.user_id),
+        eq(memberships.whopUserId, userId),
         eq(memberships.status, "active")
       )
     )

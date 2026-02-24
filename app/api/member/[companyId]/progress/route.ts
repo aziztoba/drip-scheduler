@@ -4,12 +4,12 @@
  * Marks a module as completed for the authenticated member.
  * Refuses if the module is still locked (server-side drip check).
  *
- * Auth: x-whop-user-token header (Whop iframe SDK)
+ * Auth: x-whop-user-token header verified via validateToken + hasAccess from @whop-apps/sdk.
  * Body: { moduleId: string }
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { verifyWhopUserAndAccess } from "@/lib/whop/client";
+import { validateToken, hasAccess } from "@whop-apps/sdk";
 import { calculateDripStatus } from "@/lib/drip";
 import { db, memberships, modules, courses, progress } from "@/db";
 import { eq, and } from "drizzle-orm";
@@ -26,10 +26,17 @@ export async function POST(
     return NextResponse.json({ error: "No user token provided" }, { status: 401 });
   }
 
-  const whopUser = await verifyWhopUserAndAccess(token, companyId);
-  if (!whopUser) {
+  const verified = await validateToken({ token, dontThrow: true });
+  if (!verified?.userId) {
     return NextResponse.json({ error: "Invalid user token" }, { status: 401 });
   }
+
+  const allowed = await hasAccess({ to: companyId, headers: req.headers });
+  if (!allowed) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
+
+  const userId = verified.userId;
 
   // ── Validate body ─────────────────────────────────────────────────────────
   const body = await req.json().catch(() => null);
@@ -44,7 +51,7 @@ export async function POST(
     .select()
     .from(memberships)
     .where(
-      and(eq(memberships.whopUserId, whopUser.user_id), eq(memberships.status, "active"))
+      and(eq(memberships.whopUserId, userId), eq(memberships.status, "active"))
     )
     .limit(1);
 

@@ -1,11 +1,18 @@
 /**
  * lib/whop/client.ts
  *
- * Thin wrapper around Whop's REST API.
- * All functions are async and throw on network/API errors.
+ * Whop API helpers. Uses @whop-apps/sdk for token verification and access
+ * checks; direct fetch for OAuth and notifications.
  */
 
+import { validateToken, hasAccess, WhopAPI } from "@whop-apps/sdk";
+
 const WHOP_API_BASE = "https://api.whop.com/api/v2";
+
+// ── SDK client (app mode) ─────────────────────────────────────────────────────
+
+/** Pre-configured Whop API client operating in app mode. Reads WHOP_API_KEY from env. */
+export const whopClient = WhopAPI.app();
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -34,8 +41,6 @@ export interface WhopTokenResponse {
 
 /**
  * Builds the Whop OAuth authorization URL with PKCE (S256) + OIDC nonce.
- * Endpoint: https://api.whop.com/oauth/authorize (confirmed in Whop docs).
- * No client_secret needed — PKCE (code_verifier) replaces it at token exchange.
  */
 export function buildWhopOAuthUrl(
   state: string,
@@ -57,10 +62,12 @@ export function buildWhopOAuthUrl(
 
 /**
  * Exchanges an authorization code for an access token.
- * Whop uses OAuth 2.1 + PKCE — client_secret is NOT sent; code_verifier replaces it.
+ * Whop uses OAuth 2.1 + PKCE — code_verifier replaces client_secret.
  */
-export async function exchangeWhopCode(code: string, codeVerifier: string): Promise<WhopTokenResponse> {
-  // RFC 6749 §4.1.3 requires application/x-www-form-urlencoded for token requests.
+export async function exchangeWhopCode(
+  code: string,
+  codeVerifier: string
+): Promise<WhopTokenResponse> {
   const body = new URLSearchParams({
     grant_type: "authorization_code",
     code,
@@ -79,7 +86,7 @@ export async function exchangeWhopCode(code: string, codeVerifier: string): Prom
     body: body.toString(),
   });
 
-  const data = await res.json() as Record<string, unknown>;
+  const data = (await res.json()) as Record<string, unknown>;
   console.log("[Whop] Token response:", JSON.stringify(data));
 
   if (!res.ok) {
@@ -144,71 +151,36 @@ export async function sendWhopNotification(
   });
 
   if (!res.ok) {
-    // Log but don't throw — one failed notification shouldn't crash the cron job
     console.error(
       `[Whop] Failed to notify user ${userId}: ${res.status} ${await res.text()}`
     );
   }
 }
 
-// ── Iframe verification ───────────────────────────────────────────────────────
+// ── User + access verification ────────────────────────────────────────────────
 
 /**
- * Verifies the user token sent by Whop's iframe SDK.
- * Returns the user's ID + company ID if valid, null otherwise.
+ * Verifies a Whop iframe user token via the SDK and optionally checks access
+ * to a specific resource (product/experience ID).
  *
- * In production: replace with Whop's official SDK verification method
- * once the iframeSDK package is available in your app.
- */
-export async function verifyWhopIframeToken(
-  token: string
-): Promise<{ user_id: string; company_id: string } | null> {
-  try {
-    const res = await fetch(`${WHOP_API_BASE}/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-      // Cache for 60 seconds to avoid hammering the API on every page render
-      next: { revalidate: 60 },
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { id: string; company_id: string };
-    return { user_id: data.id, company_id: data.company_id };
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Compatibility helper used while migrating to the Whop SDK access flow.
- * If the SDK is configured, this will prefer SDK token verification and access checks.
- * Otherwise it falls back to the legacy `/me` token verification.
+ * Returns the userId on success, or null if verification or access fails.
  */
 export async function verifyWhopUserAndAccess(
   token: string,
   resourceId?: string
-): Promise<{ user_id: string; company_id?: string; access_level?: "customer" | "admin" | "no_access" } | null> {
+): Promise<{ user_id: string; access_level?: "customer" | "admin" | "no_access" } | null> {
   try {
-    const { checkWhopAccessViaSdk, verifyWhopUserTokenViaSdk } = await import("./sdk");
+    const result = await validateToken({ token, dontThrow: true });
+    if (!result?.userId) return null;
 
-    const hdrs = new Headers({ "x-whop-user-token": token });
-    const sdkUser = await verifyWhopUserTokenViaSdk(hdrs);
-    if (sdkUser) {
-      let access_level: "customer" | "admin" | "no_access" | undefined;
-      if (resourceId) {
-        const access = await checkWhopAccessViaSdk(resourceId, sdkUser.userId);
-        if (access) {
-          if (!access.has_access || access.access_level === "no_access") return null;
-          access_level = access.access_level;
-        }
-      }
-      return access_level
-        ? { user_id: sdkUser.userId, access_level }
-        : { user_id: sdkUser.userId };
+    if (resourceId) {
+      const allowed = await hasAccess({ to: resourceId, token });
+      if (!allowed) return null;
+      return { user_id: result.userId, access_level: "customer" };
     }
-  } catch {
-    // fall through to legacy path
-  }
 
-  const fallback = await verifyWhopIframeToken(token);
-  if (!fallback) return null;
-  return fallback;
+    return { user_id: result.userId };
+  } catch {
+    return null;
+  }
 }
