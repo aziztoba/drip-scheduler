@@ -11,7 +11,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { verifyWhopIframeToken } from "@/lib/whop/client";
+import { verifyWhopUserAndAccess } from "@/lib/whop/client";
 import { calculateDripStatus } from "@/lib/drip";
 import { db, memberships, courses, modules } from "@/db";
 import { eq, and, asc } from "drizzle-orm";
@@ -28,7 +28,7 @@ export async function GET(
     return NextResponse.json({ error: "No user token provided" }, { status: 401 });
   }
 
-  const whopUser = await verifyWhopIframeToken(token);
+  const whopUser = await verifyWhopUserAndAccess(token, companyId);
   if (!whopUser) {
     return NextResponse.json({ error: "Invalid user token" }, { status: 401 });
   }

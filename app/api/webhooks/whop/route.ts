@@ -2,81 +2,83 @@
  * POST /api/webhooks/whop
  *
  * Receives and processes Whop membership lifecycle events.
- *
- * Events handled:
- *   membership.went_valid   → upsert into memberships table
- *   membership.went_invalid → set status = "expired"
- *
- * All other events are acknowledged (200 OK) and ignored.
+ * Prefers Whop SDK webhook unwrapping (Standard Webhooks compatible) when configured,
+ * and falls back to the legacy x-whop-signature HMAC verification used by this app.
  */
 
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
-import {
-  verifyWhopWebhookSignature,
-  parseWebhookEvent,
-  type MembershipEventData,
-} from "@/lib/whop/webhooks";
 import { db, memberships, companies } from "@/db";
 import { eq } from "drizzle-orm";
+import {
+  parseWebhookEvent,
+  type MembershipEventData,
+  verifyWhopWebhookSignature,
+} from "@/lib/whop/webhooks";
+import { unwrapWhopWebhookViaSdk } from "@/lib/whop/sdk";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  // ── Read raw body (required for HMAC verification) ────────────────────────
   const rawBody = await req.text();
-
-  // Whop sends the signature in the x-whop-signature header
-  const signature = req.headers.get("x-whop-signature");
   const webhookSecret = process.env.WHOP_WEBHOOK_SECRET;
+  const legacySignature = req.headers.get("x-whop-signature");
 
   if (!webhookSecret) {
     console.error("[Webhook] WHOP_WEBHOOK_SECRET not configured");
     return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
   }
 
-  // ── Signature verification ─────────────────────────────────────────────────
-  if (!verifyWhopWebhookSignature(rawBody, signature, webhookSecret)) {
-    console.warn("[Webhook] Rejected — invalid signature", { signature });
-    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+  let parsed: unknown = await unwrapWhopWebhookViaSdk(rawBody, req.headers);
+  if (!parsed) {
+    if (!verifyWhopWebhookSignature(rawBody, legacySignature, webhookSecret)) {
+      console.warn("[Webhook] Rejected - invalid signature", { legacySignature });
+      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+    }
+    parsed = parseWebhookEvent(rawBody);
   }
 
-  // ── Parse event ────────────────────────────────────────────────────────────
-  const event = parseWebhookEvent(rawBody);
+  const event = normalizeWebhookEvent(parsed);
   if (!event) {
     return NextResponse.json({ error: "Malformed payload" }, { status: 400 });
   }
 
   console.log(`[Webhook] ${event.action}`, JSON.stringify(event.data));
 
-  // ── Dispatch ───────────────────────────────────────────────────────────────
   try {
     switch (event.action) {
       case "membership.went_valid":
-        await handleMembershipActivated(event.data as unknown as MembershipEventData);
+        await handleMembershipActivated(event.data as MembershipEventData);
         break;
-
       case "membership.went_invalid":
-        await handleMembershipDeactivated(event.data as unknown as MembershipEventData);
+        await handleMembershipDeactivated(event.data as MembershipEventData);
         break;
-
       default:
         console.log(`[Webhook] Unhandled action: ${event.action}`);
     }
 
-    // Always return 200 so Whop stops retrying.
     return NextResponse.json({ received: true });
-
   } catch (error) {
     console.error(`[Webhook] Error processing "${event.action}":`, error);
-    // Return 500 so Whop retries delivery on transient failures.
     return NextResponse.json({ error: "Processing failed" }, { status: 500 });
   }
 }
 
-// ── Handlers ──────────────────────────────────────────────────────────────────
+function normalizeWebhookEvent(input: unknown): { action: string; data: unknown } | null {
+  if (!input || typeof input !== "object") return null;
+  const obj = input as Record<string, unknown>;
+
+  if (typeof obj.action === "string" && "data" in obj) {
+    return { action: obj.action, data: obj.data };
+  }
+
+  if (typeof obj.type === "string" && "data" in obj) {
+    return { action: obj.type, data: obj.data };
+  }
+
+  return null;
+}
 
 async function handleMembershipActivated(data: MembershipEventData): Promise<void> {
-  // Look up our internal company record by Whop's company ID
   const [company] = await db
     .select({ id: companies.id })
     .from(companies)
@@ -84,15 +86,12 @@ async function handleMembershipActivated(data: MembershipEventData): Promise<voi
     .limit(1);
 
   if (!company) {
-    // Creator hasn't connected our app yet — ignore
     console.warn(`[Webhook] No company found for whop_company_id: ${data.company_id}`);
     return;
   }
 
-  // created_at from Whop is a unix timestamp (seconds)
   const joinedAt = new Date(data.created_at * 1000);
 
-  // Upsert — handles re-activations (member cancels then rejoins)
   await db
     .insert(memberships)
     .values({
@@ -123,3 +122,4 @@ async function handleMembershipDeactivated(data: MembershipEventData): Promise<v
 
   console.log(`[Webhook] Membership expired: ${data.id}`);
 }
+

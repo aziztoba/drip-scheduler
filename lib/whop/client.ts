@@ -176,3 +176,39 @@ export async function verifyWhopIframeToken(
     return null;
   }
 }
+
+/**
+ * Compatibility helper used while migrating to the Whop SDK access flow.
+ * If the SDK is configured, this will prefer SDK token verification and access checks.
+ * Otherwise it falls back to the legacy `/me` token verification.
+ */
+export async function verifyWhopUserAndAccess(
+  token: string,
+  resourceId?: string
+): Promise<{ user_id: string; company_id?: string; access_level?: "customer" | "admin" | "no_access" } | null> {
+  try {
+    const { checkWhopAccessViaSdk, verifyWhopUserTokenViaSdk } = await import("./sdk");
+
+    const hdrs = new Headers({ "x-whop-user-token": token });
+    const sdkUser = await verifyWhopUserTokenViaSdk(hdrs);
+    if (sdkUser) {
+      let access_level: "customer" | "admin" | "no_access" | undefined;
+      if (resourceId) {
+        const access = await checkWhopAccessViaSdk(resourceId, sdkUser.userId);
+        if (access) {
+          if (!access.has_access || access.access_level === "no_access") return null;
+          access_level = access.access_level;
+        }
+      }
+      return access_level
+        ? { user_id: sdkUser.userId, access_level }
+        : { user_id: sdkUser.userId };
+    }
+  } catch {
+    // fall through to legacy path
+  }
+
+  const fallback = await verifyWhopIframeToken(token);
+  if (!fallback) return null;
+  return fallback;
+}

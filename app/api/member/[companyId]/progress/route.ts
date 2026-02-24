@@ -9,7 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { verifyWhopIframeToken } from "@/lib/whop/client";
+import { verifyWhopUserAndAccess } from "@/lib/whop/client";
 import { calculateDripStatus } from "@/lib/drip";
 import { db, memberships, modules, courses, progress } from "@/db";
 import { eq, and } from "drizzle-orm";
@@ -18,7 +18,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ companyId: string }> }
 ): Promise<NextResponse> {
-  await params; // companyId is used as a URL namespace; ownership checked via membership below
+  const { companyId } = await params;
 
   // ── Verify Whop iframe user token ─────────────────────────────────────────
   const token = req.headers.get("x-whop-user-token");
@@ -26,7 +26,7 @@ export async function POST(
     return NextResponse.json({ error: "No user token provided" }, { status: 401 });
   }
 
-  const whopUser = await verifyWhopIframeToken(token);
+  const whopUser = await verifyWhopUserAndAccess(token, companyId);
   if (!whopUser) {
     return NextResponse.json({ error: "Invalid user token" }, { status: 401 });
   }
