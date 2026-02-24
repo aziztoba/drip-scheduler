@@ -31,12 +31,16 @@ export const companies = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     whopCompanyId: varchar("whop_company_id", { length: 64 }).notNull().unique(),
+    whopExperienceId: varchar("whop_experience_id", { length: 64 }),
     accessToken: text("access_token").notNull(),
     plan: planEnum("plan").notNull().default("free"),
     stripeCustomerId: varchar("stripe_customer_id", { length: 64 }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex("companies_whop_company_id_idx").on(t.whopCompanyId)]
+  (t) => [
+    uniqueIndex("companies_whop_company_id_idx").on(t.whopCompanyId),
+    uniqueIndex("companies_whop_experience_id_idx").on(t.whopExperienceId),
+  ]
 );
 
 /**
