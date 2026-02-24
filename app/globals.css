@@ -3,6 +3,21 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* DripCourse Design Tokens */
+  --dc-bg: #080E1A;
+  --dc-surface-1: #0D1526;
+  --dc-surface-2: #111E35;
+  --dc-primary: #E2E8F7;
+  --dc-secondary: #94A3B8;
+  --dc-muted: #475569;
+  --dc-border: rgba(255,255,255,0.06);
+  --dc-indigo: #6366F1;
+  --dc-purple: #A855F7;
+  --dc-pink: #EC4899;
+  --dc-success: #22C55E;
+  --dc-warning: #F59E0B;
+  --dc-error: #EF4444;
 }
 
 @theme inline {
@@ -23,4 +38,31 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* DripCourse app scoped styles */
+.dc-app {
+  font-family: 'Inter', sans-serif;
+  background: var(--dc-bg);
+  color: var(--dc-primary);
+  min-height: 100vh;
+}
+
+.dc-gradient-text {
+  background: linear-gradient(135deg, #6366F1 0%, #A855F7 50%, #EC4899 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.dc-glow-indigo {
+  box-shadow: 0 0 20px rgba(99,102,241,0.3);
+}
+
+.dc-glow-purple {
+  box-shadow: 0 0 20px rgba(168,85,247,0.3);
+}
+
+.dc-glow-pink {
+  box-shadow: 0 0 20px rgba(236,72,153,0.25);
 }
