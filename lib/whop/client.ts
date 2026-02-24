@@ -11,8 +11,16 @@ const WHOP_API_BASE = "https://api.whop.com/api/v2";
 
 // ── SDK client (app mode) ─────────────────────────────────────────────────────
 
-/** Pre-configured Whop API client operating in app mode. Reads WHOP_API_KEY from env. */
-export const whopClient = WhopAPI.app();
+let _whopClient: ReturnType<typeof WhopAPI.app> | undefined;
+
+/**
+ * Returns the Whop API client in app mode.
+ * Lazy-initialized so WHOP_API_KEY is only read at call time (never at module
+ * load / build time, which avoids "Variable API_KEY not found" build errors).
+ */
+export function getWhopClient(): ReturnType<typeof WhopAPI.app> {
+  return (_whopClient ??= WhopAPI.app());
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
