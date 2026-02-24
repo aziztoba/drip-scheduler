@@ -20,8 +20,12 @@ export default function NotificationsToggle() {
   }
 
   if (!mounted) {
-    // Avoid hydration mismatch — render placeholder until client mounts
-    return <div className="w-10 h-6 bg-slate-200 rounded-full animate-pulse" />;
+    return (
+      <div
+        className="w-11 h-6 rounded-full animate-pulse"
+        style={{ background: "rgba(255,255,255,0.08)" }}
+      />
+    );
   }
 
   return (
@@ -29,14 +33,17 @@ export default function NotificationsToggle() {
       role="switch"
       aria-checked={enabled}
       onClick={toggle}
-      className={`relative inline-flex w-10 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 ${
-        enabled ? "bg-indigo-600" : "bg-slate-200"
-      }`}
+      className="relative inline-flex w-11 h-6 rounded-full transition-colors focus:outline-none shrink-0"
+      style={{
+        background: enabled
+          ? "linear-gradient(90deg, #6366F1, #A855F7)"
+          : "rgba(255,255,255,0.1)",
+        boxShadow: enabled ? "0 0 12px rgba(168,85,247,0.4)" : "none",
+      }}
     >
       <span
-        className={`inline-block w-4 h-4 rounded-full bg-white shadow transition-transform mt-1 ${
-          enabled ? "translate-x-5" : "translate-x-1"
-        }`}
+        className="inline-block w-4 h-4 rounded-full bg-white shadow transition-transform mt-1"
+        style={{ transform: enabled ? "translateX(20px)" : "translateX(4px)" }}
       />
     </button>
   );

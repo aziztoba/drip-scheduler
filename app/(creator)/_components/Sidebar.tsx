@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, Users, Settings } from "lucide-react";
+import { Logo } from "@/components/dripcourse/Logo";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Courses", icon: LayoutDashboard },
-  { href: "/members",   label: "Members", icon: Users },
+  { href: "/members",   label: "Members",  icon: Users },
 ];
 
 const BOTTOM_ITEMS = [
@@ -27,13 +28,18 @@ function NavItem({
   return (
     <Link
       href={href}
-      className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-        active
-          ? "bg-indigo-100 text-indigo-700"
-          : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-      }`}
+      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors"
+      style={{
+        background: active ? "rgba(99,102,241,0.12)" : "transparent",
+        color: active ? "#E2E8F7" : "#94A3B8",
+        borderLeft: active ? "2px solid #6366F1" : "2px solid transparent",
+        marginLeft: active ? 0 : 2,
+      }}
     >
-      <Icon className="w-4 h-4 shrink-0" />
+      <Icon
+        className="w-4 h-4 shrink-0"
+        style={{ color: active ? "#A855F7" : "#475569" }}
+      />
       {label}
     </Link>
   );
@@ -48,13 +54,16 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="w-56 min-h-screen bg-white border-r border-slate-200 flex flex-col py-6 px-3 shrink-0">
+    <aside
+      className="w-56 flex flex-col py-5 px-3 shrink-0"
+      style={{
+        background: "#0D1526",
+        borderRight: "1px solid rgba(255,255,255,0.06)",
+      }}
+    >
       {/* Logo */}
-      <div className="flex items-center gap-2 px-2 mb-8">
-        <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center shrink-0">
-          <span className="text-white font-bold text-sm">D</span>
-        </div>
-        <span className="font-semibold text-slate-900 truncate">Drip Scheduler</span>
+      <div className="px-2 mb-8">
+        <Logo compact={false} />
       </div>
 
       {/* Main nav */}

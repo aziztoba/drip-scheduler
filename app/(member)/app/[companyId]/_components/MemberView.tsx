@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import ModuleCard from "./ModuleCard";
+import { Logo } from "@/components/dripcourse/Logo";
 
 export interface ModuleData {
   id:         string;
@@ -13,11 +14,11 @@ export interface ModuleData {
 }
 
 interface Props {
-  courseTitle:          string;
-  daysSinceJoin:        number;
-  modules:              ModuleData[];
-  membershipId:         string;
-  initialCompletedIds:  string[];
+  courseTitle:         string;
+  daysSinceJoin:       number;
+  modules:             ModuleData[];
+  membershipId:        string;
+  initialCompletedIds: string[];
 }
 
 export default function MemberView({
@@ -43,50 +44,92 @@ export default function MemberView({
   const progressPct    = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6">
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#080E1A",
+        fontFamily: "'Inter', system-ui, sans-serif",
+      }}
+    >
       {/* Top bar */}
-      <div className="flex items-center justify-between mb-5">
-        <h1 className="text-lg font-semibold text-white truncate">{courseTitle}</h1>
-        <span className="ml-3 shrink-0 px-3 py-1 bg-indigo-500 text-white text-xs font-medium rounded-full">
-          Day {daysSinceJoin}
-        </span>
-      </div>
+      <div
+        className="sticky top-0 z-10 px-4 py-3"
+        style={{
+          background: "#0D1526",
+          borderBottom: "1px solid rgba(255,255,255,0.06)",
+        }}
+      >
+        <div style={{ maxWidth: 640, margin: "0 auto" }}>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3 min-w-0">
+              <Logo compact />
+              <h1
+                className="text-sm font-semibold truncate"
+                style={{ color: "#E2E8F7" }}
+              >
+                {courseTitle}
+              </h1>
+            </div>
+            <span
+              className="shrink-0 px-2.5 py-1 text-xs font-semibold rounded-full ml-2"
+              style={{
+                background: "linear-gradient(90deg, #6366F1, #A855F7)",
+                color: "#fff",
+              }}
+            >
+              Day {daysSinceJoin}
+            </span>
+          </div>
 
-      {/* Overall progress bar */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between text-xs text-gray-400 mb-2">
-          <span>{completedCount} of {totalCount} modules completed</span>
-          <span>{Math.round(progressPct)}%</span>
-        </div>
-        <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-indigo-500 rounded-full transition-all duration-300"
-            style={{ width: `${progressPct}%` }}
-          />
+          {/* Progress bar */}
+          <div className="flex items-center gap-3">
+            <div
+              className="flex-1 h-1.5 rounded-full overflow-hidden"
+              style={{ background: "rgba(255,255,255,0.08)" }}
+            >
+              <div
+                className="h-full rounded-full transition-all duration-300"
+                style={{
+                  width: `${progressPct}%`,
+                  background: "linear-gradient(90deg, #6366F1, #A855F7, #EC4899)",
+                }}
+              />
+            </div>
+            <span className="text-xs shrink-0" style={{ color: "#94A3B8" }}>
+              {completedCount}/{totalCount} · {Math.round(progressPct)}%
+            </span>
+          </div>
         </div>
       </div>
 
       {/* Module list */}
-      {modules.length === 0 ? (
-        <p className="text-gray-500 text-sm text-center py-10">
-          No modules have been added yet.
-        </p>
-      ) : (
-        modules.map((mod) => (
-          <ModuleCard
-            key={mod.id}
-            moduleId={mod.id}
-            title={mod.title}
-            content={mod.content}
-            videoUrl={mod.videoUrl}
-            isUnlocked={mod.isUnlocked}
-            isCompleted={completedIds.has(mod.id)}
-            unlockDay={mod.unlockDay}
-            membershipId={membershipId}
-            onToggleComplete={handleToggleComplete}
-          />
-        ))
-      )}
+      <div style={{ maxWidth: 640, margin: "0 auto", padding: "20px 16px" }}>
+        {modules.length === 0 ? (
+          <p
+            className="text-sm text-center py-16"
+            style={{ color: "#475569" }}
+          >
+            No modules have been added yet.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {modules.map((mod) => (
+              <ModuleCard
+                key={mod.id}
+                moduleId={mod.id}
+                title={mod.title}
+                content={mod.content}
+                videoUrl={mod.videoUrl}
+                isUnlocked={mod.isUnlocked}
+                isCompleted={completedIds.has(mod.id)}
+                unlockDay={mod.unlockDay}
+                membershipId={membershipId}
+                onToggleComplete={handleToggleComplete}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

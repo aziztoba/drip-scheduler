@@ -17,7 +17,8 @@
       "Bash(sort:*)",
       "Bash(tail:*)",
       "Bash(echo checking...:*)",
-      "Bash(cd /d/Work/drip-scheduler && npm run build 2>&1)"
+      "Bash(cd /d/Work/drip-scheduler && npm run build 2>&1)",
+      "Bash(cd /d/Work/drip-scheduler && git push origin main 2>&1)"
     ]
   }
 }

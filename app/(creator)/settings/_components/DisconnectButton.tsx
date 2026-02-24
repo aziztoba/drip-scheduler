@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { LogOut } from "lucide-react";
 
 export default function DisconnectButton() {
   const [confirming, setConfirming] = useState(false);
-  const [loading,    setLoading]    = useState(false);
+  const [loading, setLoading]       = useState(false);
 
   async function handleDisconnect() {
     setLoading(true);
@@ -15,17 +16,25 @@ export default function DisconnectButton() {
   if (confirming) {
     return (
       <div className="flex items-center gap-3">
-        <p className="text-sm text-slate-600">This will log you out. Continue?</p>
+        <p className="text-sm" style={{ color: "#94A3B8" }}>
+          This will log you out. Continue?
+        </p>
         <button
           onClick={handleDisconnect}
           disabled={loading}
-          className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-xl hover:bg-red-700 disabled:opacity-50 transition-colors"
+          className="px-4 py-2 text-sm font-medium rounded-xl disabled:opacity-50 transition-opacity hover:opacity-80"
+          style={{ background: "#EF4444", color: "#fff" }}
         >
           {loading ? "Logging out…" : "Yes, disconnect"}
         </button>
         <button
           onClick={() => setConfirming(false)}
-          className="px-4 py-2 text-sm text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
+          className="px-4 py-2 text-sm rounded-xl transition-colors"
+          style={{
+            background: "rgba(255,255,255,0.06)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            color: "#94A3B8",
+          }}
         >
           Cancel
         </button>
@@ -36,8 +45,14 @@ export default function DisconnectButton() {
   return (
     <button
       onClick={() => setConfirming(true)}
-      className="px-4 py-2 text-sm font-medium text-red-600 border border-red-200 rounded-xl hover:bg-red-50 transition-colors"
+      className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl transition-colors hover:opacity-80"
+      style={{
+        background: "rgba(239,68,68,0.1)",
+        border: "1px solid rgba(239,68,68,0.25)",
+        color: "#EF4444",
+      }}
     >
+      <LogOut size={14} />
       Disconnect Whop
     </button>
   );

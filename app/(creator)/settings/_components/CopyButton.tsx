@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Copy, Check } from "lucide-react";
 
 export default function CopyButton({ value }: { value: string }) {
   const [copied, setCopied] = useState(false);
@@ -14,12 +15,22 @@ export default function CopyButton({ value }: { value: string }) {
   return (
     <button
       onClick={handleCopy}
-      className={`shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+      className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl border transition-colors"
+      style={
         copied
-          ? "bg-green-50 text-green-700 border-green-200"
-          : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300"
-      }`}
+          ? {
+              background: "rgba(34,197,94,0.12)",
+              borderColor: "rgba(34,197,94,0.25)",
+              color: "#22C55E",
+            }
+          : {
+              background: "rgba(255,255,255,0.04)",
+              borderColor: "rgba(255,255,255,0.1)",
+              color: "#94A3B8",
+            }
+      }
     >
+      {copied ? <Check size={12} /> : <Copy size={12} />}
       {copied ? "Copied!" : "Copy"}
     </button>
   );

@@ -2,12 +2,12 @@ import { getSession } from "@/lib/auth";
 import { db, memberships, progress, modules, courses } from "@/db";
 import { eq, and, count, desc } from "drizzle-orm";
 import MembersTable, { type MemberRow } from "./_components/MembersTable";
+import { Users, UserCheck, TrendingUp } from "lucide-react";
 
 export default async function MembersPage() {
   const session = await getSession();
   if (!session) return null;
 
-  // ── Fetch memberships with completed-module count ─────────────────────────
   const rows = await db
     .select({
       id:             memberships.id,
@@ -23,7 +23,6 @@ export default async function MembersPage() {
     .groupBy(memberships.id)
     .orderBy(desc(memberships.joinedAt));
 
-  // ── Total modules across published courses for this company ───────────────
   const [modCountRow] = await db
     .select({ total: count(modules.id) })
     .from(modules)
@@ -34,7 +33,6 @@ export default async function MembersPage() {
 
   const totalModules = modCountRow?.total ?? 0;
 
-  // ── Derived stats ─────────────────────────────────────────────────────────
   const totalMembers  = rows.length;
   const activeMembers = rows.filter((r) => r.status === "active").length;
 
@@ -46,7 +44,6 @@ export default async function MembersPage() {
             totalMembers
         );
 
-  // Serialise dates for the client component
   const tableRows: MemberRow[] = rows.map((r) => ({
     id:             r.id,
     whopUserId:     r.whopUserId,
@@ -56,46 +53,82 @@ export default async function MembersPage() {
     completedCount: r.completedCount,
   }));
 
+  const stats = [
+    { label: "Total Members", value: totalMembers, icon: Users,      color: "#6366F1" },
+    { label: "Active",        value: activeMembers, icon: UserCheck,  color: "#22C55E" },
+    { label: "Avg. Completion", value: `${avgCompletion}%`, icon: TrendingUp, color: "#A855F7" },
+  ];
+
   return (
     <div>
       {/* Page header */}
       <div className="flex items-center gap-3 mb-8">
-        <h1 className="text-2xl font-bold text-slate-900">Members</h1>
-        <span className="bg-indigo-100 text-indigo-700 text-xs font-semibold px-2.5 py-1 rounded-full">
+        <h1 className="text-2xl font-bold" style={{ color: "#E2E8F7" }}>
+          Members
+        </h1>
+        <span
+          className="text-xs font-semibold px-2.5 py-1 rounded-full"
+          style={{ background: "rgba(99,102,241,0.15)", color: "#A855F7" }}
+        >
           {totalMembers} member{totalMembers !== 1 ? "s" : ""}
         </span>
       </div>
 
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-4 mb-8">
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <p className="text-xs text-slate-500 uppercase tracking-wide font-semibold mb-1">
-            Total Members
-          </p>
-          <p className="text-3xl font-bold text-slate-900">{totalMembers}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <p className="text-xs text-slate-500 uppercase tracking-wide font-semibold mb-1">
-            Active
-          </p>
-          <p className="text-3xl font-bold text-green-600">{activeMembers}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <p className="text-xs text-slate-500 uppercase tracking-wide font-semibold mb-1">
-            Avg. Completion
-          </p>
-          <p className="text-3xl font-bold text-indigo-600">{avgCompletion}%</p>
-        </div>
+        {stats.map((stat) => {
+          const Icon = stat.icon;
+          return (
+            <div
+              key={stat.label}
+              className="rounded-2xl p-5"
+              style={{
+                background: "#0D1526",
+                border: "1px solid rgba(255,255,255,0.06)",
+                borderTop: `2px solid ${stat.color}`,
+              }}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <p
+                  className="text-xs uppercase tracking-wide font-semibold"
+                  style={{ color: "#94A3B8" }}
+                >
+                  {stat.label}
+                </p>
+                <div
+                  className="w-8 h-8 rounded-xl flex items-center justify-center"
+                  style={{ background: `${stat.color}20` }}
+                >
+                  <Icon size={15} style={{ color: stat.color }} />
+                </div>
+              </div>
+              <p className="text-3xl font-bold" style={{ color: "#E2E8F7" }}>
+                {stat.value}
+              </p>
+            </div>
+          );
+        })}
       </div>
 
       {/* Empty state or table */}
       {totalMembers === 0 ? (
-        <div className="bg-white rounded-xl border border-slate-200 p-16 text-center">
-          <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-3xl">👥</span>
+        <div
+          className="rounded-2xl p-16 text-center"
+          style={{
+            background: "#0D1526",
+            border: "1px solid rgba(255,255,255,0.06)",
+          }}
+        >
+          <div
+            className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+            style={{ background: "rgba(255,255,255,0.04)" }}
+          >
+            <Users size={28} style={{ color: "#475569" }} />
           </div>
-          <h2 className="text-lg font-semibold text-slate-900 mb-2">No members yet</h2>
-          <p className="text-slate-500 text-sm max-w-sm mx-auto">
+          <h2 className="text-lg font-semibold mb-2" style={{ color: "#E2E8F7" }}>
+            No members yet
+          </h2>
+          <p className="text-sm max-w-sm mx-auto" style={{ color: "#94A3B8" }}>
             Members appear here automatically when they join via Whop.
             Share your Whop link to get started.
           </p>

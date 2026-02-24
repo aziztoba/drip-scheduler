@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Lock, ChevronDown, CheckCircle2, Circle, Check } from "lucide-react";
 
 interface Props {
   moduleId:         string;
@@ -26,7 +27,7 @@ export default function ModuleCard({
   onToggleComplete,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
-  const [saving,   setSaving]   = useState(false);
+  const [saving, setSaving]     = useState(false);
 
   async function handleToggle(completed: boolean) {
     setSaving(true);
@@ -46,16 +47,34 @@ export default function ModuleCard({
   if (!isUnlocked) {
     return (
       <div
-        className="bg-gray-900 rounded-xl border border-gray-800 p-4 mb-3 opacity-60"
-        style={{ borderLeft: "3px solid #374151" }}
+        className="rounded-2xl p-4"
+        style={{
+          background: "rgba(255,255,255,0.02)",
+          border: "1px solid rgba(255,255,255,0.05)",
+          borderLeft: "2px solid rgba(255,255,255,0.06)",
+          opacity: 0.6,
+        }}
       >
         <div className="flex items-center gap-3">
-          <svg className="w-4 h-4 text-gray-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-          </svg>
-          <span className="flex-1 text-sm text-gray-500 truncate">{title}</span>
-          <span className="text-xs px-2 py-0.5 rounded-full bg-gray-700 text-gray-400 shrink-0">
+          <div
+            className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+            style={{ background: "rgba(255,255,255,0.04)" }}
+          >
+            <Lock size={13} style={{ color: "#475569" }} />
+          </div>
+          <span
+            className="flex-1 text-sm truncate"
+            style={{ color: "#475569" }}
+          >
+            {title}
+          </span>
+          <span
+            className="text-xs px-2 py-0.5 rounded-full shrink-0"
+            style={{
+              background: "rgba(255,255,255,0.05)",
+              color: "#475569",
+            }}
+          >
             Unlocks Day {unlockDay}
           </span>
         </div>
@@ -64,49 +83,74 @@ export default function ModuleCard({
   }
 
   // ── UNLOCKED ──────────────────────────────────────────────────────────────
-  const borderColor = isCompleted ? "#22c55e" : "#6366f1";
+  const accentColor = isCompleted ? "#22C55E" : "#6366F1";
 
   return (
     <div
-      className="bg-gray-900 rounded-xl border border-gray-800 mb-3 overflow-hidden"
-      style={{ borderLeft: `3px solid ${borderColor}` }}
+      className="rounded-2xl overflow-hidden"
+      style={{
+        background: "#0D1526",
+        border: "1px solid rgba(255,255,255,0.06)",
+        borderLeft: `2px solid ${accentColor}`,
+      }}
     >
-      {/* Header — clickable to expand/collapse */}
+      {/* Header */}
       <button
         className="w-full flex items-center gap-3 px-4 py-4 text-left"
         onClick={() => setExpanded((e) => !e)}
       >
         {isCompleted ? (
-          /* Green checkmark circle */
-          <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center shrink-0">
-            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-            </svg>
+          <div
+            className="w-5 h-5 rounded-full flex items-center justify-center shrink-0"
+            style={{ background: "#22C55E" }}
+          >
+            <Check size={11} className="text-white" strokeWidth={3} />
           </div>
         ) : (
-          /* Empty indigo circle */
-          <div className="w-5 h-5 rounded-full border-2 border-indigo-400 shrink-0" />
+          <div
+            className="w-5 h-5 rounded-full border-2 shrink-0"
+            style={{ borderColor: "#6366F1" }}
+          />
         )}
 
-        <span className="flex-1 text-sm font-medium text-white truncate">{title}</span>
+        <span
+          className="flex-1 text-sm font-medium truncate"
+          style={{ color: "#E2E8F7" }}
+        >
+          {title}
+        </span>
 
-        <span className="text-xs px-2 py-0.5 rounded bg-gray-700 text-gray-400 shrink-0">
+        <span
+          className="text-xs px-2 py-0.5 rounded-full shrink-0"
+          style={{
+            background: "rgba(255,255,255,0.05)",
+            color: "#475569",
+          }}
+        >
           Day {unlockDay}
         </span>
 
-        <svg
-          className={`w-4 h-4 text-gray-500 ml-1 shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`}
-          fill="none" viewBox="0 0 24 24" stroke="currentColor"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
+        <ChevronDown
+          size={15}
+          className="shrink-0 transition-transform ml-1"
+          style={{
+            color: "#475569",
+            transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
+          }}
+        />
       </button>
 
       {/* Expanded body */}
       {expanded && (
-        <div className="px-4 pb-4">
+        <div
+          className="px-4 pb-5"
+          style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
+        >
           {videoUrl && (
-            <div className="aspect-video bg-gray-800 rounded-lg overflow-hidden mb-4">
+            <div
+              className="rounded-xl overflow-hidden mb-4 mt-4"
+              style={{ aspectRatio: "16/9", background: "#080E1A" }}
+            >
               <iframe
                 src={videoUrl}
                 className="w-full h-full"
@@ -118,28 +162,37 @@ export default function ModuleCard({
 
           {content && (
             <div
-              className="prose prose-invert prose-sm max-w-none mb-4 text-gray-300"
+              className="prose prose-invert prose-sm max-w-none mb-4 mt-4"
+              style={{ color: "#94A3B8" }}
               dangerouslySetInnerHTML={{ __html: content }}
             />
           )}
 
-          {isCompleted ? (
-            <button
-              onClick={() => handleToggle(false)}
-              disabled={saving}
-              className="text-xs text-gray-400 underline underline-offset-2 hover:text-gray-200 disabled:opacity-50 transition-colors"
-            >
-              {saving ? "Saving…" : "Mark incomplete"}
-            </button>
-          ) : (
-            <button
-              onClick={() => handleToggle(true)}
-              disabled={saving}
-              className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
-            >
-              {saving ? "Saving…" : "Mark complete"}
-            </button>
-          )}
+          <div className="mt-4">
+            {isCompleted ? (
+              <button
+                onClick={() => handleToggle(false)}
+                disabled={saving}
+                className="text-xs transition-opacity hover:opacity-70 disabled:opacity-40"
+                style={{ color: "#94A3B8", textDecoration: "underline" }}
+              >
+                {saving ? "Saving…" : "Mark incomplete"}
+              </button>
+            ) : (
+              <button
+                onClick={() => handleToggle(true)}
+                disabled={saving}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50 transition-opacity hover:opacity-90"
+                style={{
+                  background: "linear-gradient(90deg, #6366F1, #A855F7)",
+                  boxShadow: "0 2px 12px rgba(99,102,241,0.3)",
+                }}
+              >
+                <CheckCircle2 size={15} />
+                {saving ? "Saving…" : "Mark complete"}
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>
