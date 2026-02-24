@@ -1,14 +1,17 @@
 /**
- * /app/[companyId]?token=<whop_user_token>
+ * /app/[companyId]
  * /app/[companyId]?preview=<membershipId>   ← creator preview (skips token check)
  *
  * Dark-themed drip course view. Served inside Whop's iframe.
+ * Whop injects "x-whop-user-token" as a request header on every iframe request.
  * Server component — all DB fetches happen server-side.
  * MemberView island owns expand/collapse + progress bar state.
  */
 
+import { headers } from "next/headers";
 import { db, memberships, courses, modules, progress } from "@/db";
 import { eq, and, asc } from "drizzle-orm";
+import { verifyWhopUserAndAccess } from "@/lib/whop/client";
 import MemberView, { type ModuleData } from "./_components/MemberView";
 
 // ── Error screen ─────────────────────────────────────────────────────────────
@@ -34,19 +37,19 @@ export default async function MemberCoursePage({
   searchParams,
 }: {
   params:       Promise<{ companyId: string }>;
-  searchParams: Promise<{ token?: string; preview?: string }>;
+  searchParams: Promise<{ preview?: string; token?: string }>;
 }) {
-  const [{ companyId }, { token, preview }] = await Promise.all([params, searchParams]);
+  const [{ companyId }, sp] = await Promise.all([params, searchParams]);
 
   // ── Resolve membership ───────────────────────────────────────────────────
   let membership: typeof memberships.$inferSelect | undefined;
 
-  if (preview) {
+  if (sp.preview) {
     // Creator preview mode — load by membership ID directly, no token needed
     const [row] = await db
       .select()
       .from(memberships)
-      .where(and(eq(memberships.id, preview), eq(memberships.companyId, companyId)))
+      .where(and(eq(memberships.id, sp.preview), eq(memberships.companyId, companyId)))
       .limit(1);
     membership = row;
 
@@ -59,15 +62,14 @@ export default async function MemberCoursePage({
       );
     }
   } else {
-    // Normal member flow — verify Whop token
-    if (!token) {
-      return <ErrorScreen title="Access denied" message="No access token provided." />;
-    }
+    // Normal member flow — Whop injects x-whop-user-token header in iframe requests
+    const requestHeaders = await headers();
+    const iframeToken = requestHeaders.get("x-whop-user-token");
 
     let userId: string;
 
-    // DEV BYPASS: token=dev or token=test in non-production
-    if (process.env.NODE_ENV !== "production" && (token === "dev" || token === "test")) {
+    // DEV BYPASS: ?token=dev in non-production (for local testing without Whop iframe)
+    if (process.env.NODE_ENV !== "production" && (sp.token === "dev" || sp.token === "test")) {
       const [anyMembership] = await db
         .select({ whopUserId: memberships.whopUserId })
         .from(memberships)
@@ -83,23 +85,20 @@ export default async function MemberCoursePage({
         );
       }
       userId = anyMembership.whopUserId;
-    } else {
-      try {
-        const res = await fetch("https://api.whop.com/oauth/userinfo", {
-          headers: { Authorization: `Bearer ${token}` },
-          cache: "no-store",
-        });
-        if (!res.ok) {
-          return <ErrorScreen title="Access denied" message="Your session is invalid or expired. Please reload." />;
-        }
-        const info = (await res.json()) as { sub?: string };
-        if (!info.sub) {
-          return <ErrorScreen title="Access denied" message="Could not verify your identity." />;
-        }
-        userId = info.sub;
-      } catch {
-        return <ErrorScreen title="Access denied" message="Could not reach Whop. Please try again." />;
+    } else if (iframeToken) {
+      // Production: verify the Whop-injected user token
+      const verified = await verifyWhopUserAndAccess(iframeToken, companyId);
+      if (!verified) {
+        return <ErrorScreen title="Access denied" message="Your session is invalid or expired. Please reload." />;
       }
+      userId = verified.user_id;
+    } else {
+      return (
+        <ErrorScreen
+          title="Access denied"
+          message="This page must be opened inside Whop. No access token was provided."
+        />
+      );
     }
 
     const [row] = await db

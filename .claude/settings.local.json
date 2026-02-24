@@ -18,7 +18,10 @@
       "Bash(tail:*)",
       "Bash(echo checking...:*)",
       "Bash(cd /d/Work/drip-scheduler && npm run build 2>&1)",
-      "Bash(cd /d/Work/drip-scheduler && git push origin main 2>&1)"
+      "Bash(cd /d/Work/drip-scheduler && git push origin main 2>&1)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ]
   }
 }
