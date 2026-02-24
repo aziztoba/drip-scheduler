@@ -31,7 +31,7 @@ export default async function SettingsPage() {
 
   const appUrl     = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   const webhookUrl = `${appUrl}/api/webhooks/whop`;
-  const memberUrl  = `${appUrl}/app/${company?.whopCompanyId ?? session.companyId}`;
+  const memberUrl  = `${appUrl}/experiences/${company?.whopCompanyId ?? session.companyId}`;
   const isPro      = company?.plan === "pro";
 
   return (

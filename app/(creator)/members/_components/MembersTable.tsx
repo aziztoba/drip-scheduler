@@ -191,7 +191,7 @@ export default function MembersTable({ rows, totalModules, companyId }: Props) {
                       {/* Actions */}
                       <td className="px-5 py-3.5">
                         <Link
-                          href={`/app/${companyId}?preview=${member.id}`}
+                          href={`/experiences/${companyId}?preview=${member.id}`}
                           target="_blank"
                           className="text-xs font-medium px-2.5 py-1 rounded-lg transition-opacity hover:opacity-80"
                           style={{

@@ -87,7 +87,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       whopCompanyId: company_id ?? internalCompanyId,
     });
 
-    const response = NextResponse.redirect(new URL("/dashboard", req.url));
+    const dashboardCompanyId = company_id ?? internalCompanyId;
+    const response = NextResponse.redirect(
+      new URL(`/dashboard/${dashboardCompanyId}`, req.url)
+    );
 
     response.cookies.set("drip_session", sessionToken, {
       httpOnly: true,
