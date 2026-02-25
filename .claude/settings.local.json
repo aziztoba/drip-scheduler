@@ -23,7 +23,8 @@
       "WebFetch(domain:github.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
       "Bash(cd /d/Work/drip-scheduler && npm install @whop-apps/sdk 2>&1)",
-      "Bash(cd /d/Work/drip-scheduler && git push 2>&1)"
+      "Bash(cd /d/Work/drip-scheduler && git push 2>&1)",
+      "Bash(cd D:/Work/drip-scheduler && npm run build 2>&1)"
     ]
   }
 }
